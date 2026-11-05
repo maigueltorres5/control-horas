@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestión de Horas Extras - Planta DT</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Horas Planta DT">
+    <meta name="description" content="Sistema Integrado de Control de Horas Extras y Disfrute - Planta Doña Tita">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#16a34a',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Manifest Data URI Generator Script inline -->
+    <script>
+        const manifestData = {
+            "name": "Horas Extras - Planta Doña Tita",
+            "short_name": "Horas DT",
+            "start_url": "./",
+            "display": "standalone",
+            "background_color": "#f8fafc",
+            "theme_color": "#1e293b",
+            "icons": [
+                {
+                    "src": "https://img.icons8.com/color/192/clock--v1.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                },
+                {
+                    "src": "https://img.icons8.com/color/512/clock--v1.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        };
+        const manifestString = JSON.stringify(manifestData);
+        const manifestBlob = new Blob([manifestString], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+    </script>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased select-none md:select-auto">
+
+    <!-- Navbar Top -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="bg-brand-600 p-2 rounded-xl text-white shadow-md">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight tracking-wide">Planta Doña Tita</h1>
+                        <p class="text-xs text-slate-400">Control de Horas Extras & Disfrute</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openModal('modalImport')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-slate-700">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Importar Excel</span>
+                    </button>
+                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 shadow">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Exportar Excel</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Bar / Tabs -->
+    <div class="bg-white border-b border-slate-200 sticky top-16 z-20 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex space-x-4 sm:space-x-8 overflow-x-auto no-scrollbar py-2" aria-label="Tabs">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active text-brand-600 border-brand-600 border-b-2 font-semibold px-3 py-2 text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+                </button>
+                <button onclick="switchTab('workers')" id="tab-workers" class="tab-btn text-slate-500 hover:text-slate-700 border-transparent border-b-2 font-medium px-3 py-2 text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="users" class="w-4 h-4"></i> Trabajadores
+                </button>
+                <button onclick="switchTab('records')" id="tab-records" class="tab-btn text-slate-500 hover:text-slate-700 border-transparent border-b-2 font-medium px-3 py-2 text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> Registrar Movimiento
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Body Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-y-auto">
+
+        <!-- ================= TAB: DASHBOARD ================= -->
+        <div id="view-dashboard" class="space-y-6">
+            
+            <!-- Quick Stat Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Trabajadores</p>
+                        <h3 id="stat-workers" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+                        <span class="text-xs text-slate-500">Personal registrado</span>
+                    </div>
+                    <div class="bg-blue-50 text-blue-600 p-3 rounded-xl">
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Horas Generadas</p>
+                        <h3 id="stat-generated" class="text-2xl font-black text-emerald-600 mt-1">0.00 hrs</h3>
+                        <span class="text-xs text-slate-500">Acumulado total</span>
+                    </div>
+                    <div class="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
+                        <i data-lucide="trending-up" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Horas Disfrutadas</p>
+                        <h3 id="stat-enjoyed" class="text-2xl font-black text-blue-600 mt-1">0.00 hrs</h3>
+                        <span class="text-xs text-slate-500">Tiempo otorgado</span>
+                    </div>
+                    <div class="bg-blue-50 text-blue-600 p-3 rounded-xl">
+                        <i data-lucide="calendar-check" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Saldo Pendiente</p>
+                        <h3 id="stat-pending" class="text-2xl font-black text-amber-600 mt-1">0.00 hrs</h3>
+                        <span id="stat-pending-days" class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">0.00 días</span>
+                    </div>
+                    <div class="bg-amber-50 text-amber-600 p-3 rounded-xl">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Bar Chart Top Hours Pending -->
+                <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-brand-600"></i> Top Trabajadores con Horas Pendientes
+                        </h3>
+                        <span class="text-xs text-slate-400">Jornada estándar: 8 hrs/día</span>
+                    </div>
+                    <div class="h-72 relative">
+                        <canvas id="chartPending"></canvas>
+                    </div>
+                </div>
+
+                <!-- Doughnut Chart Distribution -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-5 h-5 text-brand-600"></i> Proporción Global
+                        </h3>
+                    </div>
+                    <div class="h-60 relative flex items-center justify-center">
+                        <canvas id="chartDistribution"></canvas>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex justify-around text-center">
+                        <div>
+                            <span class="block text-xs text-slate-400">Disfrutado</span>
+                            <span id="label-enjoyed-pct" class="text-sm font-bold text-blue-600">0%</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-slate-400">Pendiente</span>
+                            <span id="label-pending-pct" class="text-sm font-bold text-amber-600">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Urgent Attention Table (Top Pending) -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-500"></i> Personal con Mayor Acumulación de Días
+                    </h3>
+                    <button onclick="switchTab('workers')" class="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                        Ver todos <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-slate-500 text-xs uppercase font-semibold">
+                            <tr>
+                                <th class="px-4 py-3">Trabajador</th>
+                                <th class="px-4 py-3 text-center">Horas Extras</th>
+                                <th class="px-4 py-3 text-center">Disfrutadas</th>
+                                <th class="px-4 py-3 text-center">Saldo Pendiente</th>
+                                <th class="px-4 py-3 text-center">Equivalente Días</th>
+                                <th class="px-4 py-3 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-dashboard-urgent" class="divide-y divide-slate-200">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB: WORKERS LIST ================= -->
+        <div id="view-workers" class="space-y-4 hidden">
+            <!-- Search & Actions Bar -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full md:w-80">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchWorker" oninput="renderWorkersTable()" placeholder="Buscar trabajador..." 
+                        class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                </div>
+                
+                <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                    <select id="filterStatus" onchange="renderWorkersTable()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <option value="all">Todos los estados</option>
+                        <option value="pending">Con saldo pendiente</option>
+                        <option value="cleared">Al día (0 hrs)</option>
+                    </select>
+
+                    <button onclick="openModal('modalWorker')" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow shrink-0">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i> Nuevo Trabajador
+                    </button>
+                </div>
+            </div>
+
+            <!-- Workers Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3.5">Nombre del Trabajador</th>
+                                <th class="px-4 py-3.5 text-center">Horas Extras</th>
+                                <th class="px-4 py-3.5 text-center">Horas Disfrutadas</th>
+                                <th class="px-4 py-3.5 text-center">Pendiente (Horas)</th>
+                                <th class="px-4 py-3.5 text-center">Pendiente (Días)</th>
+                                <th class="px-4 py-3.5 text-center">Estado</th>
+                                <th class="px-4 py-3.5 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-workers-body" class="divide-y divide-slate-200">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB: RECORDS / REGISTER MOVEMENTS ================= -->
+        <div id="view-records" class="space-y-6 hidden">
+            <!-- Forms Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Form 1: Add Extra Hours -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-emerald-500">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-emerald-100 text-emerald-700 p-2 rounded-lg">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">Registrar Hora Extra Generada</h3>
+                            <p class="text-xs text-slate-500">Aumenta el saldo disponible del trabajador</p>
+                        </div>
+                    </div>
+                    <form id="formAddExtra" onsubmit="handleAddMovement(event, 'generated')" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Trabajador</label>
+                            <select id="select-worker-extra" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+                                <!-- Options dynamically injected -->
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Fecha</label>
+                                <input type="date" id="extra-date" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Horas Generadas</label>
+                                <input type="number" step="0.01" min="0.1" id="extra-hours" placeholder="Ej: 8.0" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Observación / Actividad</label>
+                            <input type="text" id="extra-obs" placeholder="Ej: Turno nocturno / Jornada especial" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+                            Guardar Horas Extras
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Form 2: Add Enjoyed Time -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-blue-500">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-blue-100 text-blue-700 p-2 rounded-lg">
+                            <i data-lucide="minus-circle" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">Registrar Tiempo Disfrutado</h3>
+                            <p class="text-xs text-slate-500">Resta horas del saldo del trabajador</p>
+                        </div>
+                    </div>
+                    <form id="formAddEnjoyed" onsubmit="handleAddMovement(event, 'enjoyed')" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Trabajador</label>
+                            <select id="select-worker-enjoyed" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                                <!-- Options dynamically injected -->
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Fecha</label>
+                                <input type="date" id="enjoyed-date" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Horas Disfrutadas</label>
+                                <input type="number" step="0.01" min="0.1" id="enjoyed-hours" placeholder="Ej: 8.0" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Observación / Motivo</label>
+                            <input type="text" id="enjoyed-obs" placeholder="Ej: Permiso por día libre acumulado" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+                            Guardar Disfrute
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Recent Global Activity Logs -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                        <i data-lucide="history" class="w-4 h-4 text-slate-500"></i> Historial Reciente de Movimientos
+                    </h3>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3">Fecha</th>
+                                <th class="px-4 py-3">Trabajador</th>
+                                <th class="px-4 py-3 text-center">Tipo</th>
+                                <th class="px-4 py-3 text-center">Cantidad</th>
+                                <th class="px-4 py-3">Observación</th>
+                                <th class="px-4 py-3 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-history-body" class="divide-y divide-slate-200">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Modal 1: Worker Details Profile -->
+    <div id="modalDetail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center font-bold text-lg text-white">
+                        <span id="detailAvatar">W</span>
+                    </div>
+                    <div>
+                        <h3 id="detailWorkerName" class="font-bold text-lg">Nombre del Trabajador</h3>
+                        <p class="text-xs text-slate-400">Detalles de registro y movimientos</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modalDetail')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-1">
+                <!-- Summary Chips -->
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+                        <span class="block text-xs text-emerald-600 font-semibold uppercase">Generadas</span>
+                        <span id="detailGenHours" class="text-lg font-black text-emerald-700">0.00 hrs</span>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl">
+                        <span class="block text-xs text-blue-600 font-semibold uppercase">Disfrutadas</span>
+                        <span id="detailEnjHours" class="text-lg font-black text-blue-700">0.00 hrs</span>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                        <span class="block text-xs text-amber-600 font-semibold uppercase">Pendientes</span>
+                        <span id="detailPendHours" class="text-lg font-black text-amber-700">0.00 hrs</span>
+                        <span id="detailPendDays" class="block text-[11px] font-medium text-amber-600">(0.00 días)</span>
+                    </div>
+                </div>
+
+                <!-- Tabs/Tables inside detail -->
+                <div>
+                    <h4 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                        <i data-lucide="list" class="w-4 h-4 text-brand-600"></i> Historial de Movimientos del Trabajador
+                    </h4>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-100 text-slate-500 uppercase font-semibold">
+                                <tr>
+                                    <th class="px-3 py-2.5">Fecha</th>
+                                    <th class="px-3 py-2.5 text-center">Tipo</th>
+                                    <th class="px-3 py-2.5 text-center">Horas</th>
+                                    <th class="px-3 py-2.5">Observación</th>
+                                    <th class="px-3 py-2.5 text-right">Eliminar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailLogsTable" class="divide-y divide-slate-200">
+                                <!-- Injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button onclick="closeModal('modalDetail')" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold text-sm">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Add/Edit Worker -->
+    <div id="modalWorker" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
+                <h3 id="modalWorkerTitle" class="font-bold text-base">Añadir Nuevo Trabajador</h3>
+                <button onclick="closeModal('modalWorker')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="formWorker" onsubmit="handleSaveWorker(event)" class="p-5 space-y-4">
+                <input type="hidden" id="editWorkerId">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nombre Completo</label>
+                    <input type="text" id="workerNameInput" required placeholder="Ej: CARLOS RODRÍGUEZ" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-500 uppercase">
+                </div>
+                <div id="initialBalanceContainer" class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Horas Extras Iniciales</label>
+                        <input type="number" step="0.01" min="0" id="workerInitGen" value="0" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Horas Disfrutadas Init</label>
+                        <input type="number" step="0.01" min="0" id="workerInitEnj" value="0" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modalWorker')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-semibold text-sm">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-semibold text-sm shadow">
+                        Guardar Trabajador
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Import Excel File -->
+    <div id="modalImport" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
+                <h3 class="font-bold text-base">Importar Hoja de Excel (.xlsx / .csv)</h3>
+                <button onclick="closeModal('modalImport')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Selecciona un archivo Excel para actualizar o cargar la base de datos de trabajadores y sus balances de horas.
+                </p>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('excelFileInput').click()">
+                    <i data-lucide="file-spreadsheet" class="w-10 h-10 text-brand-600 mx-auto mb-2"></i>
+                    <span class="block text-sm font-semibold text-slate-700">Haz clic para buscar archivo</span>
+                    <span class="block text-xs text-slate-400 mt-1">Soporta formatos .xlsx, .xls, .csv</span>
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event)" class="hidden">
+                </div>
+                <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <button onclick="resetToInitialData()" class="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Restablecer datos iniciales
+                    </button>
+                    <button onclick="closeModal('modalImport')" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initial Dataset from Excel File: horas planta DT.xlsx
+        const INITIAL_WORKERS_DATA = [
+            { id: '1', name: "ANEL VILLAZANA", generatedHours: 112.00, enjoyedHours: 64.00, logs: [] },
+            { id: '2', name: "ANTHONY VILLAZANA", generatedHours: 4.90, enjoyedHours: 4.03, logs: [] },
+            { id: '3', name: "ANTONIO PADRON", generatedHours: 48.00, enjoyedHours: 40.00, logs: [] },
+            { id: '4', name: "ANTONIO RODRIGUEZ", generatedHours: 0.00, enjoyedHours: 0.00, logs: [] },
+            { id: '5', name: "BRENDA OLIVARES", generatedHours: 0.00, enjoyedHours: 0.00, logs: [] },
+            { id: '6', name: "CARLOS RODRÍGUEZ", generatedHours: 15.70, enjoyedHours: 0.00, logs: [] },
+            { id: '7', name: "CESAR ALVARES", generatedHours: 16.00, enjoyedHours: 16.00, logs: [] },
+            { id: '8', name: "CESAR FUNEZ", generatedHours: 80.00, enjoyedHours: 72.00, logs: [] },
+            { id: '9', name: "CESAR RODRIGUEZ", generatedHours: 144.00, enjoyedHours: 64.00, logs: [] },
+            { id: '10', name: "DANERIS LOPEZ", generatedHours: 23.10, enjoyedHours: 7.00, logs: [] },
+            { id: '11', name: "DARIO LOPEZ", generatedHours: 32.00, enjoyedHours: 0.00, logs: [] },
+            { id: '12', name: "DEOMAR HERRERA", generatedHours: 32.00, enjoyedHours: 0.00, logs: [] },
+            { id: '13', name: "EDGAR MENDEZ", generatedHours: 96.00, enjoyedHours: 28.23, logs: [] },
+            { id: '14', name: "EDWAR CABRERA", generatedHours: 128.00, enjoyedHours: 128.00, logs: [] },
+            { id: '15', name: "ENDERSON ORTA", generatedHours: 80.00, enjoyedHours: 72.00, logs: [] },
+            { id: '16', name: "ERICK RATIA", generatedHours: 96.00, enjoyedHours: 96.00, logs: [] },
+            { id: '17', name: "FRANKLIN AGUIRRE", generatedHours: 80.00, enjoyedHours: 80.00, logs: [] },
+            { id: '18', name: "FRAY RODRIGUEZ", generatedHours: 14.00, enjoyedHours: 12.00, logs: [] },
+            { id: '19', name: "FREDDY GARCIA", generatedHours: 26.73, enjoyedHours: 10.87, logs: [] },
+            { id: '20', name: "FREYNER RIVAS", generatedHours: 32.00, enjoyedHours: 0.00, logs: [] },
+            { id: '21', name: "GEORGE RUBIO", generatedHours: 96.00, enjoyedHours: 64.00, logs: [] },
+            { id: '22', name: "JANICER RUIZ", generatedHours: 76.02, enjoyedHours: 63.95, logs: [] },
+            { id: '23', name: "JAVIER QUINTO", generatedHours: 16.00, enjoyedHours: 16.00, logs: [] },
+            { id: '24', name: "JEAN SULBARAN", generatedHours: 12.00, enjoyedHours: 8.50, logs: [] },
+            { id: '25', name: "JEIZA CAMPOS", generatedHours: 138.45, enjoyedHours: 42.88, logs: [] },
+            { id: '26', name: "JESFERSON SILVA", generatedHours: 64.00, enjoyedHours: 40.00, logs: [] },
+            { id: '27', name: "JESÚS OCHOA", generatedHours: 64.00, enjoyedHours: 64.00, logs: [] },
+            { id: '28', name: "JESÚS PERALES", generatedHours: 96.00, enjoyedHours: 96.00, logs: [] },
+            { id: '29', name: "JORGE LINARES", generatedHours: 27.40, enjoyedHours: 0.00, logs: [] },
+            { id: '30', name: "JOSE ALBERTO GONZALEZ FARFAN", generatedHours: 13.28, enjoyedHours: 10.40, logs: [] },
+            { id: '31', name: "JOSÉ ALCALA", generatedHours: 96.50, enjoyedHours: 41.83, logs: [] },
+            { id: '32', name: "JOSE ANGULO", generatedHours: 248.00, enjoyedHours: 216.00, logs: [] },
+            { id: '33', name: "JOSE BELTRAN", generatedHours: 16.00, enjoyedHours: 0.00, logs: [] },
+            { id: '34', name: "JOSE CARVAJAL", generatedHours: 11.80, enjoyedHours: 8.50, logs: [] },
+            { id: '35', name: "JOSE DAZA", generatedHours: 32.00, enjoyedHours: 31.93, logs: [] },
+            { id: '36', name: "JOSE DELGADO", generatedHours: 32.00, enjoyedHours: 0.00, logs: [] },
+            { id: '37', name: "JOSÉ ECHENIQUE", generatedHours: 32.00, enjoyedHours: 16.00, logs: [] },
+            { id: '38', name: "JOSÉ MELENDEZ", generatedHours: 64.00, enjoyedHours: 56.00, logs: [] },
+            { id: '39', name: "JOSE NUÑEZ", generatedHours: 32.00, enjoyedHours: 32.00, logs: [] },
+            { id: '40', name: "LUIS PINTO", generatedHours: 11.90, enjoyedHours: 11.87, logs: [] },
+            { id: '41', name: "MAICOL VELIZ", generatedHours: 64.00, enjoyedHours: 40.00, logs: [] },
+            { id: '42', name: "MAIGUEL TORRES", generatedHours: 91.12, enjoyedHours: 40.72, logs: [] },
+            { id: '43', name: "MANUEL SOLORZANO", generatedHours: 46.30, enjoyedHours: 38.30, logs: [] },
+            { id: '44', name: "MARCOS CELIS", generatedHours: 2.00, enjoyedHours: 1.50, logs: [] },
+            { id: '45', name: "MOISES AÑEZ", generatedHours: 59.60, enjoyedHours: 27.72, logs: [] },
+            { id: '46', name: "NELCAR VENERO", generatedHours: 25.45, enjoyedHours: 19.48, logs: [] },
+            { id: '47', name: "NERIO RODRIGUEZ", generatedHours: 12.80, enjoyedHours: 12.00, logs: [] },
+            { id: '48', name: "DANIEL CASTILLO", generatedHours: 8.00, enjoyedHours: 0.00, logs: [] },
+            { id: '49', name: "RAUL ARAUJO", generatedHours: 16.00, enjoyedHours: 8.00, logs: [] },
+            { id: '50', name: "ROBERTH GONZALEZ", generatedHours: 8.00, enjoyedHours: 8.00, logs: [] },
+            { id: '51', name: "ROBERTH REVERON", generatedHours: 12.00, enjoyedHours: 0.00, logs: [] },
+            { id: '52', name: "WILLIAM RODRÍGUEZ", generatedHours: 24.00, enjoyedHours: 16.00, logs: [] },
+            { id: '53', name: "WILMAR TORRES", generatedHours: 8.00, enjoyedHours: 0.00, logs: [] },
+            { id: '54', name: "YERSON INFANTE", generatedHours: 16.00, enjoyedHours: 8.00, logs: [] }
+        ];
+
+        // State Variables
+        let workers = [];
+        let pendingChartInstance = null;
+        let distributionChartInstance = null;
+        let activeWorkerDetailId = null;
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            initLucideIcons();
+            setDefaultDates();
+            renderApp();
+            registerServiceWorker();
+        });
+
+        function initLucideIcons() {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            const extraDate = document.getElementById('extra-date');
+            const enjoyedDate = document.getElementById('enjoyed-date');
+            if(extraDate) extraDate.value = today;
+            if(enjoyedDate) enjoyedDate.value = today;
+        }
+
+        // Data Storage Management (LocalStorage)
+        function loadData() {
+            const stored = localStorage.getItem('dt_horas_workers_v2');
+            if (stored) {
+                try {
+                    workers = JSON.parse(stored);
+                } catch (e) {
+                    console.error("Error parsing LocalStorage data", e);
+                    workers = JSON.parse(JSON.stringify(INITIAL_WORKERS_DATA));
+                }
+            } else {
+                workers = JSON.parse(JSON.stringify(INITIAL_WORKERS_DATA));
+                saveData();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('dt_horas_workers_v2', JSON.stringify(workers));
+            renderApp();
+        }
+
+        function resetToInitialData() {
+            Swal.fire({
+                title: '¿Restablecer datos?',
+                text: "Se restaurará la lista original del Excel y se borrarán los cambios locales.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmColor: '#16a34a',
+                cancelColor: '#64748b',
+                confirmButtonText: 'Sí, restablecer',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    workers = JSON.parse(JSON.stringify(INITIAL_WORKERS_DATA));
+                    saveData();
+                    closeModal('modalImport');
+                    Swal.fire('Restablecido', 'Base de datos restaurada correctamente', 'success');
+                }
+            });
+        }
+
+        // Navigation Tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-brand-600', 'border-brand-600');
+                btn.classList.add('text-slate-500', 'border-transparent');
+            });
+            const selectedBtn = document.getElementById(`tab-${tabName}`);
+            if (selectedBtn) {
+                selectedBtn.classList.add('active', 'text-brand-600', 'border-brand-600');
+                selectedBtn.classList.remove('text-slate-500', 'border-transparent');
+            }
+
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-workers').classList.add('hidden');
+            document.getElementById('view-records').classList.add('hidden');
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'dashboard') {
+                updateCharts();
+            }
+        }
+
+        // Calculation Helpers
+        function getPendingHours(worker) {
+            const pending = (worker.generatedHours || 0) - (worker.enjoyedHours || 0);
+            return pending < 0 ? 0 : pending;
+        }
+
+        function getPendingDays(worker) {
+            return getPendingHours(worker) / 8;
+        }
+
+        // Render Master App
+        function renderApp() {
+            renderDashboardStats();
+            renderWorkersTable();
+            populateWorkerSelects();
+            renderHistoryTable();
+            initLucideIcons();
+        }
+
+        // Render Dashboard Stats & Tables
+        function renderDashboardStats() {
+            const totalWorkers = workers.length;
+            const totalGen = workers.reduce((sum, w) => sum + (w.generatedHours || 0), 0);
+            const totalEnj = workers.reduce((sum, w) => sum + (w.enjoyedHours || 0), 0);
+            const totalPend = totalGen - totalEnj;
+            const totalPendDays = totalPend / 8;
+
+            document.getElementById('stat-workers').innerText = totalWorkers;
+            document.getElementById('stat-generated').innerText = `${totalGen.toFixed(2)} hrs`;
+            document.getElementById('stat-enjoyed').innerText = `${totalEnj.toFixed(2)} hrs`;
+            document.getElementById('stat-pending').innerText = `${totalPend.toFixed(2)} hrs`;
+            document.getElementById('stat-pending-days').innerText = `${totalPendDays.toFixed(2)} días`;
+
+            // Percentage Labels
+            const enjPct = totalGen > 0 ? ((totalEnj / totalGen) * 100).toFixed(1) : 0;
+            const pendPct = totalGen > 0 ? ((totalPend / totalGen) * 100).toFixed(1) : 0;
+
+            document.getElementById('label-enjoyed-pct').innerText = `${enjPct}%`;
+            document.getElementById('label-pending-pct').innerText = `${pendPct}%`;
+
+            // Render Top Urgent Table (Sorted by Highest Pending Hours)
+            const urgentTable = document.getElementById('table-dashboard-urgent');
+            const sortedWorkers = [...workers].sort((a, b) => getPendingHours(b) - getPendingHours(a)).slice(0, 5);
+
+            urgentTable.innerHTML = sortedWorkers.map(w => {
+                const pendHrs = getPendingHours(w);
+                const pendDays = getPendingDays(w);
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-800">${w.name}</td>
+                        <td class="px-4 py-3 text-center text-slate-600">${w.generatedHours.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3 text-center text-slate-600">${w.enjoyedHours.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3 text-center font-bold text-amber-600">${pendHrs.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3 text-center"><span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-semibold">${pendDays.toFixed(2)} d</span></td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="openWorkerDetail('${w.id}')" class="text-brand-600 hover:text-brand-800 font-medium text-xs">
+                                Ver Detalle
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updateCharts();
+        }
+
+        // Render Charts with Chart.js
+        function updateCharts() {
+            const topWorkers = [...workers]
+                .sort((a, b) => getPendingHours(b) - getPendingHours(a))
+                .slice(0, 8);
+
+            const labels = topWorkers.map(w => w.name.split(' ')[0] + ' ' + (w.name.split(' ')[1] || ''));
+            const dataPending = topWorkers.map(w => getPendingHours(w));
+
+            // Bar Chart
+            const ctxBar = document.getElementById('chartPending').getContext('2d');
+            if (pendingChartInstance) pendingChartInstance.destroy();
+
+            pendingChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Horas Pendientes',
+                        data: dataPending,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Doughnut Chart
+            const totalGen = workers.reduce((sum, w) => sum + (w.generatedHours || 0), 0);
+            const totalEnj = workers.reduce((sum, w) => sum + (w.enjoyedHours || 0), 0);
+            const totalPend = Math.max(0, totalGen - totalEnj);
+
+            const ctxPie = document.getElementById('chartDistribution').getContext('2d');
+            if (distributionChartInstance) distributionChartInstance.destroy();
+
+            distributionChartInstance = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Horas Disfrutadas', 'Horas Pendientes'],
+                    datasets: [{
+                        data: [totalEnj, totalPend],
+                        backgroundColor: ['#2563eb', '#f59e0b'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // Render Workers List Table
+        function renderWorkersTable() {
+            const searchQuery = document.getElementById('searchWorker').value.toLowerCase();
+            const statusFilter = document.getElementById('filterStatus').value;
+
+            const tbody = document.getElementById('table-workers-body');
+
+            const filtered = workers.filter(w => {
+                const matchesSearch = w.name.toLowerCase().includes(searchQuery);
+                const pending = getPendingHours(w);
+                let matchesStatus = true;
+                if (statusFilter === 'pending') matchesStatus = pending > 0;
+                if (statusFilter === 'cleared') matchesStatus = pending === 0;
+
+                return matchesSearch && matchesStatus;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-slate-400">
+                            No se encontraron trabajadores con los criterios seleccionados.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(w => {
+                const pendHours = getPendingHours(w);
+                const pendDays = getPendingDays(w);
+                const isCleared = pendHours === 0;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="px-4 py-3.5 font-bold text-slate-800 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold text-xs shrink-0">
+                                ${w.name.charAt(0)}
+                            </div>
+                            <span>${w.name}</span>
+                        </td>
+                        <td class="px-4 py-3.5 text-center font-medium text-emerald-600">${w.generatedHours.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3.5 text-center font-medium text-blue-600">${w.enjoyedHours.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3.5 text-center font-bold ${isCleared ? 'text-slate-400' : 'text-amber-600'}">${pendHours.toFixed(2)} hrs</td>
+                        <td class="px-4 py-3.5 text-center">
+                            <span class="px-2 py-1 rounded-md text-xs font-semibold ${isCleared ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-800'}">
+                                ${pendDays.toFixed(2)} d
+                            </span>
+                        </td>
+                        <td class="px-4 py-3.5 text-center">
+                            ${isCleared 
+                                ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Al Día</span>'
+                                : '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendiente</span>'
+                            }
+                        </td>
+                        <td class="px-4 py-3.5 text-right space-x-1">
+                            <button onclick="openWorkerDetail('${w.id}')" title="Ver Historial" class="p-1.5 text-slate-600 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="openEditWorkerModal('${w.id}')" title="Editar Nombre/Saldo" class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteWorker('${w.id}')" title="Eliminar Trabajador" class="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            initLucideIcons();
+        }
+
+        // Select Options Helper
+        function populateWorkerSelects() {
+            const selectExtra = document.getElementById('select-worker-extra');
+            const selectEnjoyed = document.getElementById('select-worker-enjoyed');
+
+            const sorted = [...workers].sort((a, b) => a.name.localeCompare(b.name));
+            const optionsHTML = sorted.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+
+            if (selectExtra) selectExtra.innerHTML = optionsHTML;
+            if (selectEnjoyed) selectEnjoyed.innerHTML = optionsHTML;
+        }
+
+        // Render Recent Activity Logs Table
+        function renderHistoryTable() {
+            const tbody = document.getElementById('table-history-body');
+            let allLogs = [];
+
+            workers.forEach(w => {
+                if (w.logs && w.logs.length > 0) {
+                    w.logs.forEach(log => {
+                        allLogs.push({ ...log, workerName: w.name, workerId: w.id });
+                    });
+                }
+            });
+
+            allLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (allLogs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-6 text-slate-400">
+                            No hay registros de movimientos individuales. (Los acumulados provienen del saldo inicial Excel).
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = allLogs.slice(0, 15).map(log => {
+                const isExtra = log.type === 'generated';
+                return `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="px-4 py-3 text-slate-600 font-medium">${log.date}</td>
+                        <td class="px-4 py-3 font-bold text-slate-800">${log.workerName}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${isExtra ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">
+                                ${isExtra ? 'Extra Generada' : 'Disfrutado'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold ${isExtra ? 'text-emerald-600' : 'text-blue-600'}">
+                            ${isExtra ? '+' : '-'}${log.hours.toFixed(2)} hrs
+                        </td>
+                        <td class="px-4 py-3 text-slate-500 italic max-w-xs truncate">${log.obs || '-'}</td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="deleteLogEntry('${log.workerId}', '${log.id}')" title="Eliminar Registro" class="text-rose-500 hover:text-rose-700 p-1">
+                                <i data-lucide="trash" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            initLucideIcons();
+        }
+
+        // Add New Movement (Generated or Enjoyed)
+        function handleAddMovement(e, type) {
+            e.preventDefault();
+            const workerId = document.getElementById(type === 'generated' ? 'select-worker-extra' : 'select-worker-enjoyed').value;
+            const date = document.getElementById(type === 'generated' ? 'extra-date' : 'enjoyed-date').value;
+            const hours = parseFloat(document.getElementById(type === 'generated' ? 'extra-hours' : 'enjoyed-hours').value);
+            const obs = document.getElementById(type === 'generated' ? 'extra-obs' : 'enjoyed-obs').value;
+
+            const worker = workers.find(w => w.id === workerId);
+            if (!worker) return;
+
+            if (type === 'generated') {
+                worker.generatedHours += hours;
+            } else {
+                worker.enjoyedHours += hours;
+            }
+
+            if (!worker.logs) worker.logs = [];
+
+            worker.logs.push({
+                id: Date.now().toString(),
+                date: date,
+                type: type,
+                hours: hours,
+                obs: obs
+            });
+
+            saveData();
+
+            // Clear Input Form
+            document.getElementById(type === 'generated' ? 'extra-hours' : 'enjoyed-hours').value = '';
+            document.getElementById(type === 'generated' ? 'extra-obs' : 'enjoyed-obs').value = '';
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Movimiento Registrado',
+                text: `Se agregaron ${hours} hrs ${type === 'generated' ? 'generadas' : 'disfrutadas'} a ${worker.name}`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+        // Worker Detail Modal
+        function openWorkerDetail(workerId) {
+            activeWorkerDetailId = workerId;
+            const worker = workers.find(w => w.id === workerId);
+            if (!worker) return;
+
+            const pendHrs = getPendingHours(worker);
+            const pendDays = getPendingDays(worker);
+
+            document.getElementById('detailAvatar').innerText = worker.name.charAt(0);
+            document.getElementById('detailWorkerName').innerText = worker.name;
+            document.getElementById('detailGenHours').innerText = `${worker.generatedHours.toFixed(2)} hrs`;
+            document.getElementById('detailEnjHours').innerText = `${worker.enjoyedHours.toFixed(2)} hrs`;
+            document.getElementById('detailPendHours').innerText = `${pendHrs.toFixed(2)} hrs`;
+            document.getElementById('detailPendDays').innerText = `(${pendDays.toFixed(2)} días)`;
+
+            const logsTable = document.getElementById('detailLogsTable');
+            const logs = worker.logs || [];
+
+            if (logs.length === 0) {
+                logsTable.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-6 text-slate-400">
+                            Sin movimientos individuales registrados aún. Balance proveniente de datos generales.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                logsTable.innerHTML = [...logs].reverse().map(l => {
+                    const isExtra = l.type === 'generated';
+                    return `
+                        <tr class="border-b border-slate-100">
+                            <td class="px-3 py-2 font-medium text-slate-700">${l.date}</td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isExtra ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">
+                                    ${isExtra ? 'Generada' : 'Disfrutada'}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-center font-bold ${isExtra ? 'text-emerald-600' : 'text-blue-600'}">
+                                ${isExtra ? '+' : '-'}${l.hours.toFixed(2)} hrs
+                            </td>
+                            <td class="px-3 py-2 text-slate-500">${l.obs || '-'}</td>
+                            <td class="px-3 py-2 text-right">
+                                <button onclick="deleteLogEntry('${worker.id}', '${l.id}')" class="text-rose-500 hover:text-rose-700">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            openModal('modalDetail');
+            initLucideIcons();
+        }
+
+        function deleteLogEntry(workerId, logId) {
+            const worker = workers.find(w => w.id === workerId);
+            if (!worker || !worker.logs) return;
+
+            const logIndex = worker.logs.findIndex(l => l.id === logId);
+            if (logIndex === -1) return;
+
+            const log = worker.logs[logIndex];
+            
+            // Revert hours
+            if (log.type === 'generated') {
+                worker.generatedHours = Math.max(0, worker.generatedHours - log.hours);
+            } else {
+                worker.enjoyedHours = Math.max(0, worker.enjoyedHours - log.hours);
+            }
+
+            worker.logs.splice(logIndex, 1);
+            saveData();
+
+            if (activeWorkerDetailId === workerId) {
+                openWorkerDetail(workerId);
+            }
+
+            Swal.fire({
+                icon: 'info',
+                title: 'Registro Eliminado',
+                text: 'El saldo fue ajustado automáticamente',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        // Add / Edit Worker Modal Actions
+        function openEditWorkerModal(workerId) {
+            const worker = workers.find(w => w.id === workerId);
+            if (!worker) return;
+
+            document.getElementById('modalWorkerTitle').innerText = 'Editar Trabajador';
+            document.getElementById('editWorkerId').value = worker.id;
+            document.getElementById('workerNameInput').value = worker.name;
+            document.getElementById('workerInitGen').value = worker.generatedHours;
+            document.getElementById('workerInitEnj').value = worker.enjoyedHours;
+
+            openModal('modalWorker');
+        }
+
+        function handleSaveWorker(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editWorkerId').value;
+            const name = document.getElementById('workerNameInput').value.trim().toUpperCase();
+            const initGen = parseFloat(document.getElementById('workerInitGen').value) || 0;
+            const initEnj = parseFloat(document.getElementById('workerInitEnj').value) || 0;
+
+            if (editId) {
+                // Edit existing
+                const worker = workers.find(w => w.id === editId);
+                if (worker) {
+                    worker.name = name;
+                    worker.generatedHours = initGen;
+                    worker.enjoyedHours = initEnj;
+                }
+            } else {
+                // Add new worker
+                const newWorker = {
+                    id: Date.now().toString(),
+                    name: name,
+                    generatedHours: initGen,
+                    enjoyedHours: initEnj,
+                    logs: []
+                };
+                workers.push(newWorker);
+            }
+
+            saveData();
+            closeModal('modalWorker');
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Guardado',
+                text: 'Trabajador actualizado correctamente',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        function deleteWorker(workerId) {
+            const worker = workers.find(w => w.id === workerId);
+            if (!worker) return;
+
+            Swal.fire({
+                title: '¿Eliminar Trabajador?',
+                text: `¿Estás seguro de eliminar a ${worker.name}? Esta acción no se puede deshacer.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmColor: '#e11d48',
+                cancelColor: '#64748b',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    workers = workers.filter(w => w.id !== workerId);
+                    saveData();
+                    Swal.fire('Eliminado', 'El trabajador ha sido borrado.', 'success');
+                }
+            });
+        }
+
+        // Excel Import / Export using SheetJS
+        function exportToExcel() {
+            const exportData = workers.map(w => {
+                const pendHrs = getPendingHours(w);
+                const pendDays = getPendingDays(w);
+                return {
+                    'TRABAJADOR': w.name,
+                    'HORAS EXTRAS TOTALES': w.generatedHours,
+                    'TIEMPO DISFRUTADO (HRS)': w.enjoyedHours,
+                    'PENDIENTE POR DISFRUTAR (HRS)': pendHrs,
+                    'PENDIENTE POR DISFRUTAR (DÍAS)': Number(pendDays.toFixed(2))
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "HORAS DE DISFRUTE");
+
+            // Auto-fit column widths
+            const max_cols = [30, 22, 24, 28, 28];
+            worksheet['!cols'] = max_cols.map(w => ({ wch: w }));
+
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(workbook, `Horas_Planta_DT_Reporte_${today}.xlsx`);
+        }
+
+        function handleExcelUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonData.length < 2) {
+                        Swal.fire('Error', 'El archivo no contiene filas de datos válidas', 'error');
+                        return;
+                    }
+
+                    // Process Rows
+                    const newWorkers = [];
+                    // Skip header row
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (!row || !row[0]) continue;
+
+                        const name = String(row[0]).trim().toUpperCase();
+                        const genHours = parseFloat(row[1]) || 0;
+                        const enjHours = parseFloat(row[2]) || 0;
+
+                        newWorkers.push({
+                            id: (i + Date.now()).toString(),
+                            name: name,
+                            generatedHours: genHours,
+                            enjoyedHours: enjHours,
+                            logs: []
+                        });
+                    }
+
+                    if (newWorkers.length > 0) {
+                        workers = newWorkers;
+                        saveData();
+                        closeModal('modalImport');
+                        Swal.fire('Importación exitosa', `Se importaron ${newWorkers.length} trabajadores correctamente.`, 'success');
+                    } else {
+                        Swal.fire('Atención', 'No se pudieron extraer datos de trabajadores del archivo.', 'warning');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire('Error al procesar', 'No se pudo leer el archivo Excel. Asegúrate de usar el formato correcto.', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Modal Helpers
+        function openModal(modalId) {
+            if (modalId === 'modalWorker' && !document.getElementById('editWorkerId').value) {
+                document.getElementById('modalWorkerTitle').innerText = 'Añadir Nuevo Trabajador';
+                document.getElementById('formWorker').reset();
+                document.getElementById('editWorkerId').value = '';
+            }
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            if (modalId === 'modalWorker') {
+                document.getElementById('formWorker').reset();
+                document.getElementById('editWorkerId').value = '';
+            }
+        }
+
+        // PWA Service Worker Registration Inline
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    const CACHE_NAME = 'dt-horas-pwa-v1';
+                    self.addEventListener('install', (e) => {
+                        e.waitUntil(
+                            caches.open(CACHE_NAME).then((cache) => {
+                                return cache.addAll(['./']);
+                            })
+                        );
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(
+                            caches.match(e.request).then((response) => {
+                                return response || fetch(e.request);
+                            })
+                        );
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW setup skipped:', err));
+            }
+        }
+    </script>
+</body>
+</html>
